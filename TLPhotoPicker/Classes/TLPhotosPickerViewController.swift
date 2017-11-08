@@ -12,22 +12,18 @@ import PhotosUI
 import MobileCoreServices
 
 public protocol TLPhotosPickerViewControllerDelegate: class {
-    func dismissPhotoPicker(withPHAssets: [PHAsset])
-    func dismissPhotoPicker(withTLPHAssets: [TLPHAsset])
-    func pickerDidSelect(withPHAssets: [PHAsset])
-    func pickerDidSelect(withTLPHAssets: [TLPHAsset])
-    func dismissComplete()
-    func photoPickerDidCancel()
-    func didExceedMaximumNumberOfSelection(picker: TLPhotosPickerViewController)
+    func picker(_ picker: TLPhotosPickerViewController, didDismissPhotoPickerWithPHAssets assets: [PHAsset])
+    func picker(_ picker: TLPhotosPickerViewController, didDismissPhotoPickerWithTLPHAssets assets: [TLPHAsset])
+    func pickerDidDismissComplete(_ picker: TLPhotosPickerViewController)
+    func pickerDidCancel(_ picker: TLPhotosPickerViewController)
+    func pickerDidExceedMaximumNumberOfSelection(_ picker: TLPhotosPickerViewController)
 }
 extension TLPhotosPickerViewControllerDelegate {
-    public func dismissPhotoPicker(withPHAssets: [PHAsset]) { }
-    public func dismissPhotoPicker(withTLPHAssets: [TLPHAsset]) { }
-    public func pickerDidSelect(withPHAssets: [PHAsset]) { }
-    public func pickerDidSelect(withTLPHAssets: [TLPHAsset]) { }
-    public func dismissComplete() { }
-    public func photoPickerDidCancel() { }
-    public func didExceedMaximumNumberOfSelection(picker: TLPhotosPickerViewController) { }
+    public func picker(_ picker: TLPhotosPickerViewController, didDismissPhotoPickerWithPHAssets assets: [PHAsset]) {}
+    public func picker(_ picker: TLPhotosPickerViewController, didDismissPhotoPickerWithTLPHAssets assets: [TLPHAsset]) {}
+    public func pickerDidDismissComplete(_ picker: TLPhotosPickerViewController) {}
+    public func pickerDidCancel(_ picker: TLPhotosPickerViewController) {}
+    public func pickerDidExceedMaximumNumberOfSelection(_ picker: TLPhotosPickerViewController) {}
 }
 
 public struct TLPhotosPickerConfigure {
@@ -330,17 +326,17 @@ extension TLPhotosPickerViewController {
                     guard let cell = self.collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell else { return }
                     cell.indicator?.startAnimating()
                 }
-            }, completionBlock: { [weak self] image in
-                guard let `self` = self else { return }
-                asset.state = .complete
-                if let index = self.selectedAssets.index(where: { $0.phAsset == phAsset }) {
-                    self.selectedAssets[index] = asset
-                }
-                self.cloudRequestIds.removeValue(forKey: indexPath)
-                guard self.collectionView.indexPathsForVisibleItems.contains(indexPath) else { return }
-                guard let cell = self.collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell else { return }
-                cell.imageView?.image = image
-                cell.indicator?.stopAnimating()
+                }, completionBlock: { [weak self] image in
+                    guard let `self` = self else { return }
+                    asset.state = .complete
+                    if let index = self.selectedAssets.index(where: { $0.phAsset == phAsset }) {
+                        self.selectedAssets[index] = asset
+                    }
+                    self.cloudRequestIds.removeValue(forKey: indexPath)
+                    guard self.collectionView.indexPathsForVisibleItems.contains(indexPath) else { return }
+                    guard let cell = self.collectionView.cellForItem(at: indexPath) as? TLPhotoCollectionViewCell else { return }
+                    cell.imageView?.image = image
+                    cell.indicator?.stopAnimating()
             })
             if requestId > 0 {
                 self.cloudRequestIds[indexPath] = requestId
@@ -386,22 +382,23 @@ extension TLPhotosPickerViewController {
     
     fileprivate func dismiss(done: Bool) {
         if done {
-            self.delegate?.dismissPhotoPicker(withPHAssets: self.selectedAssets.flatMap{ $0.phAsset })
-            self.delegate?.dismissPhotoPicker(withTLPHAssets: self.selectedAssets)
+            self.delegate?.picker(self, didDismissPhotoPickerWithPHAssets: self.selectedAssets.flatMap{ $0.phAsset })
+            self.delegate?.picker(self, didDismissPhotoPickerWithTLPHAssets: self.selectedAssets)
             self.completionWithTLPHAssets?(self.selectedAssets)
             self.completionWithPHAssets?(self.selectedAssets.flatMap{ $0.phAsset })
         }else {
-            self.delegate?.photoPickerDidCancel()
+            self.delegate?.pickerDidCancel(self)
             self.didCancel?()
         }
         self.dismiss(animated: true) { [weak self] in
-            self?.delegate?.dismissComplete()
-            self?.dismissCompletion?()
+            guard let strong = self else { return }
+            strong.delegate?.pickerDidDismissComplete(strong)
+            strong.dismissCompletion?()
         }
     }
     fileprivate func maxCheck() -> Bool {
         if let max = self.configure.maxSelectedAssets, max <= self.selectedAssets.count {
-            self.delegate?.didExceedMaximumNumberOfSelection(picker: self)
+            self.delegate?.pickerDidExceedMaximumNumberOfSelection(self)
             self.didExceedMaximumNumberOfSelection?(self)
             return true
         }
@@ -640,7 +637,7 @@ extension TLPhotosPickerViewController: UICollectionViewDelegate,UICollectionVie
         guard var asset = collection.getTLAsset(at: indexPath.row) else { return }
         cell.popScaleAnim()
         if let index = self.selectedAssets.index(where: { $0.phAsset == asset.phAsset }) {
-        //deselect
+            //deselect
             self.selectedAssets.remove(at: index)
             self.selectedAssets = self.selectedAssets.enumerated().flatMap({ (offset,asset) -> TLPHAsset? in
                 var asset = asset
@@ -654,7 +651,7 @@ extension TLPhotosPickerViewController: UICollectionViewDelegate,UICollectionVie
                 stopPlay()
             }
         }else {
-        //select
+            //select
             guard !maxCheck() else { return }
             asset.selectedOrder = self.selectedAssets.count + 1
             self.selectedAssets.append(asset)
@@ -665,9 +662,6 @@ extension TLPhotosPickerViewController: UICollectionViewDelegate,UICollectionVie
                 playVideo(asset: asset, indexPath: indexPath)
             }
         }
-        
-        self.delegate?.pickerDidSelect(withPHAssets: self.selectedAssets.flatMap{ $0.phAsset })
-        self.delegate?.pickerDidSelect(withTLPHAssets: self.selectedAssets)
     }
     
     open func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
@@ -826,3 +820,4 @@ extension TLPhotosPickerViewController: UITableViewDelegate,UITableViewDataSourc
         return cell
     }
 }
+
