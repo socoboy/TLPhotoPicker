@@ -14,6 +14,8 @@ import MobileCoreServices
 public protocol TLPhotosPickerViewControllerDelegate: class {
     func dismissPhotoPicker(withPHAssets: [PHAsset])
     func dismissPhotoPicker(withTLPHAssets: [TLPHAsset])
+    func pickerDidSelect(withPHAssets: [PHAsset])
+    func pickerDidSelect(withTLPHAssets: [TLPHAsset])
     func dismissComplete()
     func photoPickerDidCancel()
     func didExceedMaximumNumberOfSelection(picker: TLPhotosPickerViewController)
@@ -21,6 +23,8 @@ public protocol TLPhotosPickerViewControllerDelegate: class {
 extension TLPhotosPickerViewControllerDelegate {
     public func dismissPhotoPicker(withPHAssets: [PHAsset]) { }
     public func dismissPhotoPicker(withTLPHAssets: [TLPHAsset]) { }
+    public func pickerDidSelect(withPHAssets: [PHAsset]) { }
+    public func pickerDidSelect(withTLPHAssets: [TLPHAsset]) { }
     public func dismissComplete() { }
     public func photoPickerDidCancel() { }
     public func didExceedMaximumNumberOfSelection(picker: TLPhotosPickerViewController) { }
@@ -661,6 +665,9 @@ extension TLPhotosPickerViewController: UICollectionViewDelegate,UICollectionVie
                 playVideo(asset: asset, indexPath: indexPath)
             }
         }
+        
+        self.delegate?.pickerDidSelect(withPHAssets: self.selectedAssets.flatMap{ $0.phAsset })
+        self.delegate?.pickerDidSelect(withTLPHAssets: self.selectedAssets)
     }
     
     open func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
